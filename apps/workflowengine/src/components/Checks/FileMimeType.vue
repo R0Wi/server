@@ -2,6 +2,7 @@
   - @copyright Copyright (c) 2019 Julius Härtl <jus@bitgrid.net>
   -
   - @author Julius Härtl <jus@bitgrid.net>
+  - @author Robin Windey <ro.windey@gmail.com>
   -
   - @license GNU AGPL version 3 or any later version
   -
@@ -63,60 +64,63 @@ export default {
 	mixins: [
 		valueMixin,
 	],
+	props: {
+		comparatorIsRegex: {
+			type: Boolean,
+			required: true,
+		},
+	},
 	data() {
 		return {
-			predefinedTypes: [
+			types: [
 				{
 					icon: 'icon-folder',
 					label: t('workflowengine', 'Folder'),
 					pattern: 'httpd/unix-directory',
+					isRegex: false,
 				},
 				{
 					icon: 'icon-picture',
 					label: t('workflowengine', 'Images'),
 					pattern: '/image\\/.*/',
+					isRegex: true,
 				},
 				{
 					iconUrl: imagePath('core', 'filetypes/x-office-document'),
 					label: t('workflowengine', 'Office documents'),
 					pattern: '/(vnd\\.(ms-|openxmlformats-|oasis\\.opendocument).*)$/',
+					isRegex: true,
 				},
 				{
 					iconUrl: imagePath('core', 'filetypes/application-pdf'),
 					label: t('workflowengine', 'PDF documents'),
 					pattern: 'application/pdf',
+					isRegex: false,
+				},
+				{
+					icon: 'icon-settings-dark',
+					label: t('workflowengine', 'Custom mimetype'),
+					pattern: '',
+					isRegex: false,
+					isCustom: true,
 				},
 			],
 		}
 	},
 	computed: {
 		options() {
-			return [...this.predefinedTypes, this.customValue]
+			return this.types.filter((type) => type.isRegex === this.comparatorIsRegex)
 		},
 		isPredefined() {
-			const matchingPredefined = this.predefinedTypes.find((type) => this.newValue === type.pattern)
-			if (matchingPredefined) {
-				return true
-			}
-			return false
+			return !this.currentValue.isCustom
 		},
 		customValue() {
-			return {
-				icon: 'icon-settings-dark',
-				label: t('workflowengine', 'Custom mimetype'),
-				pattern: '',
-			}
+			return this.types.find((type) => type.isCustom)
 		},
 		currentValue() {
-			const matchingPredefined = this.predefinedTypes.find((type) => this.newValue === type.pattern)
-			if (matchingPredefined) {
-				return matchingPredefined
-			}
-			return {
-				icon: 'icon-settings-dark',
-				label: t('workflowengine', 'Custom mimetype'),
-				pattern: this.newValue,
-			}
+			// If we've no matching value the comparator must have changed
+			// so reset file type to the first entry
+			return this.options.find((type) => this.newValue === type.pattern) ?? this.options[0]
 		},
 	},
 	methods: {
@@ -132,8 +136,12 @@ export default {
 			}
 		},
 		updateCustom(event) {
-			this.newValue = event.target.value
-			this.$emit('input', this.newValue)
+			const customPattern = event.target.value
+			// Important: write the new input into the custom entry pattern
+			// so that it can be found (pattern is our key to match entries)
+			this.customValue.pattern = customPattern
+			this.newValue = customPattern
+			this.$emit('input', customPattern)
 		},
 	},
 }

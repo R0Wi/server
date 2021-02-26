@@ -20,6 +20,7 @@
 		<component :is="currentOption.component"
 			v-if="currentOperator && currentComponent"
 			v-model="check.value"
+			:comparator-is-regex="currentOperator.isRegex"
 			:disabled="!currentOption"
 			:check="check"
 			class="option"

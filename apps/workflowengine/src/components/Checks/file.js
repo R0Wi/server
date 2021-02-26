@@ -26,10 +26,10 @@ import FileSystemTag from './FileSystemTag'
 
 const stringOrRegexOperators = () => {
 	return [
-		{ operator: 'matches', name: t('workflowengine', 'matches') },
-		{ operator: '!matches', name: t('workflowengine', 'does not match') },
-		{ operator: 'is', name: t('workflowengine', 'is') },
-		{ operator: '!is', name: t('workflowengine', 'is not') },
+		{ operator: 'matches', name: t('workflowengine', 'matches'), isRegex: true },
+		{ operator: '!matches', name: t('workflowengine', 'does not match'), isRegex: true },
+		{ operator: 'is', name: t('workflowengine', 'is'), isRegex: false },
+		{ operator: '!is', name: t('workflowengine', 'is not'), isRegex: false },
 	]
 }
 

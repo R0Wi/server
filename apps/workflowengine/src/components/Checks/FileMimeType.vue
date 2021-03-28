@@ -118,9 +118,24 @@ export default {
 			return this.types.find((type) => type.isCustom)
 		},
 		currentValue() {
+			// const matchingVal = this.options.find((type) => this.newValue === type.pattern)
+			// if (matchingVal) {
+			// 	return matchingVal
+			// }
+
+			// const customValue = this.customValue
+			// if (customValue.isRegex === this.comparatorIsRegex) {
+			// 	customValue.pattern = this.newValue
+			// }
+
 			// If we've no matching value the comparator must have changed
 			// so reset file type to the first entry
 			return this.options.find((type) => this.newValue === type.pattern) ?? this.options[0]
+		},
+	},
+	watch: {
+		comparatorIsRegex() {
+			this.setValue(this.options[0])
 		},
 	},
 	methods: {

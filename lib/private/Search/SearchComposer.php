@@ -96,6 +96,9 @@ class SearchComposer {
 			try {
 				/** @var IProvider $provider */
 				$provider = $this->container->query($registration->getService());
+				if ($provider->getId() === 'files') {
+					continue;
+				}
 				$this->providers[$provider->getId()] = $provider;
 			} catch (QueryException $e) {
 				// Log an continue. We can be fault tolerant here.

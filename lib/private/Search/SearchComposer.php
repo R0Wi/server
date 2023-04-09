@@ -96,7 +96,7 @@ class SearchComposer {
 			try {
 				/** @var IProvider $provider */
 				$provider = $this->container->query($registration->getService());
-				if ($provider->getId() === 'files') {
+				if ($provider->getId() === 'files' || $provider->getId() === 'systemtags') {
 					continue;
 				}
 				$this->providers[$provider->getId()] = $provider;

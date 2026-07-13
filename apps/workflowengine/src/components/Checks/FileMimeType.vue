@@ -34,7 +34,7 @@
 			v-if="!isPredefined"
 			:value="currentValue.id"
 			type="text"
-			:placeholder="t('workflowengine', 'e.g. httpd/unix-directory')"
+			:placeholder="customPlaceholder"
 			@input="updateCustom">
 	</div>
 </template>
@@ -43,6 +43,32 @@
 import { imagePath } from '@nextcloud/router'
 import NcEllipsisedOption from '@nextcloud/vue/components/NcEllipsisedOption'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
+import { validateRegex } from '../../helpers/validators.js'
+
+/**
+ * Convert a plain MIME type into an anchored regular expression,
+ * e.g. "my/mimetype" becomes "/^my\/mimetype$/"
+ *
+ * @param {string} mimeType plain MIME type
+ */
+function mimeTypeToRegex(mimeType) {
+	return `/^${mimeType.replace(/[/\\^$.|?*+()[\]{}]/g, '\\$&')}$/`
+}
+
+/**
+ * Invert mimeTypeToRegex, returns null if the given value
+ * is not a regular expression built from a plain MIME type
+ *
+ * @param {string} value the check value
+ */
+function mimeTypeFromRegex(value) {
+	const result = /^\/\^(.*)\$\/$/.exec(value)
+	if (result === null) {
+		return null
+	}
+	const mimeType = result[1].replace(/\\(.)/g, '$1')
+	return mimeTypeToRegex(mimeType) === value ? mimeType : null
+}
 
 export default {
 	name: 'FileMimeType',
@@ -53,6 +79,11 @@ export default {
 
 	props: {
 		modelValue: {
+			type: String,
+			default: '',
+		},
+
+		operator: {
 			type: String,
 			default: '',
 		},
@@ -71,7 +102,7 @@ export default {
 				{
 					icon: 'icon-folder',
 					label: t('workflowengine', 'Folder'),
-					id: 'httpd/unix-directory',
+					id: '/^httpd\\/unix-directory$/',
 				},
 				{
 					icon: 'icon-picture',
@@ -86,7 +117,7 @@ export default {
 				{
 					iconUrl: imagePath('core', 'filetypes/application-pdf'),
 					label: t('workflowengine', 'PDF documents'),
-					id: 'application/pdf',
+					id: '/^application\\/pdf$/',
 				},
 				{
 					iconUrl: imagePath('core', 'filetypes/video'),
@@ -95,29 +126,46 @@ export default {
 				},
 			],
 
+			customMimeTypeOption: {
+				icon: 'icon-settings-dark',
+				label: t('workflowengine', 'Custom MIME type'),
+			},
+
+			customRegexOption: {
+				icon: 'icon-settings-dark',
+				label: t('workflowengine', 'Custom regex'),
+			},
+
+			selectedCustomOption: null,
 			newValue: '',
 		}
 	},
 
 	computed: {
 		options() {
-			return [...this.predefinedTypes, this.customValue]
+			return [...this.predefinedTypes, this.customMimeTypeOption, this.customRegexOption]
 		},
 
 		isPredefined() {
-			const matchingPredefined = this.predefinedTypes.find((type) => this.newValue === type.id)
-			if (matchingPredefined) {
-				return true
-			}
-			return false
+			return this.predefinedTypes.some((type) => this.newValue === type.id)
 		},
 
-		customValue() {
-			return {
-				icon: 'icon-settings-dark',
-				label: t('workflowengine', 'Custom MIME type'),
-				id: '',
+		hasRegexOperator() {
+			return this.operator === 'matches' || this.operator === '!matches'
+		},
+
+		isCustomRegex() {
+			if (this.selectedCustomOption !== null) {
+				return this.selectedCustomOption === this.customRegexOption
 			}
+			return validateRegex(this.newValue) && mimeTypeFromRegex(this.newValue) === null
+		},
+
+		customPlaceholder() {
+			if (this.isCustomRegex) {
+				return t('workflowengine', 'e.g. /^application\\/xml$/')
+			}
+			return t('workflowengine', 'e.g. httpd/unix-directory')
 		},
 
 		currentValue() {
@@ -125,11 +173,10 @@ export default {
 			if (matchingPredefined) {
 				return matchingPredefined
 			}
-			return {
-				icon: 'icon-settings-dark',
-				label: t('workflowengine', 'Custom MIME type'),
-				id: this.newValue,
+			if (this.isCustomRegex) {
+				return { ...this.customRegexOption, id: this.newValue }
 			}
+			return { ...this.customMimeTypeOption, id: mimeTypeFromRegex(this.newValue) ?? this.newValue }
 		},
 	},
 
@@ -137,28 +184,47 @@ export default {
 		modelValue() {
 			this.updateInternalValue()
 		},
+
+		// Plain MIME type values stored by previous versions need to become
+		// regular expressions once the legacy is/!is operator is switched to matches/!matches
+		operator(newOperator, oldOperator) {
+			if ((oldOperator === 'is' || oldOperator === '!is')
+				&& this.hasRegexOperator
+				&& !this.isPredefined
+				&& !this.isCustomRegex
+				&& this.newValue !== '') {
+				this.newValue = mimeTypeToRegex(this.newValue)
+				this.$emit('update:model-value', this.newValue)
+			}
+		},
 	},
 
 	methods: {
-		validateRegex(string) {
-			const regexRegex = /^\/(.*)\/([gui]{0,3})$/
-			const result = regexRegex.exec(string)
-			return result !== null
-		},
-
 		updateInternalValue() {
 			this.newValue = this.modelValue
 		},
 
 		setValue(value) {
-			if (value !== null) {
-				this.newValue = value.id
-				this.$emit('update:model-value', this.newValue)
+			if (value === null) {
+				return
 			}
+			if (value === this.customMimeTypeOption || value === this.customRegexOption) {
+				this.selectedCustomOption = value
+				this.newValue = ''
+			} else {
+				this.selectedCustomOption = null
+				this.newValue = value.id
+			}
+			this.$emit('update:model-value', this.newValue)
 		},
 
 		updateCustom(event) {
-			this.newValue = event.target.value || event.detail[0]
+			const input = event.target.value ?? event.detail?.[0] ?? ''
+			if (input !== '' && !this.isCustomRegex && this.hasRegexOperator) {
+				this.newValue = mimeTypeToRegex(input)
+			} else {
+				this.newValue = input
+			}
 			this.$emit('update:model-value', this.newValue)
 		},
 	},

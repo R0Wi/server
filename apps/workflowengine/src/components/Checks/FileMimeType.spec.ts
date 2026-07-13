@@ -95,23 +95,59 @@ describe('FileMimeType.vue', () => {
 		expect(wrapper.find('input[type="text"]').exists()).toBe(false)
 	})
 
+	it('keeps the custom regex mode when the input is cleared', async () => {
+		const wrapper = await mountComponent('matches', '/^image\\/.+$/')
+
+		await wrapper.find('input[type="text"]').setValue('')
+		await wrapper.find('input[type="text"]').setValue('/^video\\/.+$/')
+
+		expect(wrapper.vm.currentValue.label).toBe('Custom regex')
+		expect(lastEmittedValue(wrapper)).toBe('/^video\\/.+$/')
+	})
+
 	it('keeps plain MIME types of existing configurations with the legacy is operator', async () => {
-		const wrapper = await mountComponent('is', 'application/pdf')
+		const wrapper = await mountComponent('is', 'my/mimetype')
 
 		expect(wrapper.vm.currentValue.label).toBe('Custom MIME type')
-		expect((wrapper.find('input[type="text"]').element as HTMLInputElement).value).toBe('application/pdf')
+		expect((wrapper.find('input[type="text"]').element as HTMLInputElement).value).toBe('my/mimetype')
 
-		await wrapper.find('input[type="text"]').setValue('httpd/unix-directory')
+		await wrapper.find('input[type="text"]').setValue('my/other-mimetype')
 
-		expect(lastEmittedValue(wrapper)).toBe('httpd/unix-directory')
+		expect(lastEmittedValue(wrapper)).toBe('my/other-mimetype')
+	})
+
+	it('displays plain MIME types of existing configurations as predefined type', async () => {
+		const wrapper = await mountComponent('is', 'httpd/unix-directory')
+
+		expect(wrapper.vm.currentValue.label).toBe('Folder')
+		expect(wrapper.find('input[type="text"]').exists()).toBe(false)
+	})
+
+	it('emits the plain MIME type when a predefined type is selected with the legacy is operator', async () => {
+		const wrapper = await mountComponent('is', 'my/mimetype')
+		const pdf = wrapper.vm.predefinedTypes.find((type: { label: string }) => type.label === 'PDF documents')
+
+		await wrapper.vm.setValue(pdf)
+
+		expect(lastEmittedValue(wrapper)).toBe('application/pdf')
+		expect(wrapper.vm.currentValue.label).toBe('PDF documents')
 	})
 
 	it('converts a plain MIME type when switching from the legacy is operator to matches', async () => {
+		const wrapper = await mountComponent('is', 'my/mimetype')
+
+		await wrapper.setProps({ operator: 'matches' })
+
+		expect(lastEmittedValue(wrapper)).toBe('/^my\\/mimetype$/')
+	})
+
+	it('converts a predefined plain MIME type when switching from the legacy is operator to matches', async () => {
 		const wrapper = await mountComponent('is', 'application/pdf')
 
 		await wrapper.setProps({ operator: 'matches' })
 
 		expect(lastEmittedValue(wrapper)).toBe('/^application\\/pdf$/')
+		expect(wrapper.vm.currentValue.label).toBe('PDF documents')
 	})
 })
 
@@ -143,5 +179,12 @@ describe('FileMimeType check definition', () => {
 		expect(check.validate({ operator: 'matches', value: '/^application\\/pdf$/' })).toBe(true)
 		expect(check.validate({ operator: 'matches', value: 'application/pdf' })).toBe(false)
 		expect(check.validate({ operator: 'is', value: 'application/pdf' })).toBe(true)
+	})
+
+	it('rejects delimited but malformed regular expressions', async () => {
+		const check = await getMimeTypeCheck()
+
+		expect(check.validate({ operator: 'matches', value: '/[/' })).toBe(false)
+		expect(check.validate({ operator: 'matches', value: '/(/' })).toBe(false)
 	})
 })

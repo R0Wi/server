@@ -147,7 +147,7 @@ export default {
 		},
 
 		isPredefined() {
-			return this.predefinedTypes.some((type) => this.newValue === type.id)
+			return this.predefinedTypes.some((type) => this.newValue === this.predefinedId(type))
 		},
 
 		hasRegexOperator() {
@@ -169,7 +169,7 @@ export default {
 		},
 
 		currentValue() {
-			const matchingPredefined = this.predefinedTypes.find((type) => this.newValue === type.id)
+			const matchingPredefined = this.predefinedTypes.find((type) => this.newValue === this.predefinedId(type))
 			if (matchingPredefined) {
 				return matchingPredefined
 			}
@@ -204,6 +204,16 @@ export default {
 			this.newValue = this.modelValue
 		},
 
+		// Predefined types are stored as regular expressions, but the legacy
+		// is/!is operators of existing configurations compare the value verbatim,
+		// so they need the plain MIME type wherever one exists
+		predefinedId(type) {
+			if (this.hasRegexOperator) {
+				return type.id
+			}
+			return mimeTypeFromRegex(type.id) ?? type.id
+		},
+
 		setValue(value) {
 			if (value === null) {
 				return
@@ -213,12 +223,18 @@ export default {
 				this.newValue = ''
 			} else {
 				this.selectedCustomOption = null
-				this.newValue = value.id
+				this.newValue = this.predefinedId(value)
 			}
 			this.$emit('update:model-value', this.newValue)
 		},
 
 		updateCustom(event) {
+			// Retain the custom mode of a loaded value across edits, otherwise
+			// clearing the input would reclassify a custom regex as MIME type
+			// and silently escape the regex typed next
+			if (this.selectedCustomOption === null) {
+				this.selectedCustomOption = this.isCustomRegex ? this.customRegexOption : this.customMimeTypeOption
+			}
 			const input = event.target.value ?? event.detail?.[0] ?? ''
 			if (input !== '' && !this.isCustomRegex && this.hasRegexOperator) {
 				this.newValue = mimeTypeToRegex(input)

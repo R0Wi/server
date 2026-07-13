@@ -20,6 +20,26 @@ function stringOrRegexOperators() {
 	]
 }
 
+/**
+ * MIME type checks work on regular expressions only. The legacy is/!is
+ * operators are kept selectable for existing configurations from previous
+ * versions, where the value could also be a plain MIME type.
+ *
+ * @param {object} check the check to get the operators for
+ */
+function mimeTypeOperators(check) {
+	const operators = [
+		{ operator: 'matches', name: t('workflowengine', 'matches') },
+		{ operator: '!matches', name: t('workflowengine', 'does not match') },
+	]
+	if (check.operator === 'is') {
+		operators.push({ operator: 'is', name: t('workflowengine', 'is') })
+	} else if (check.operator === '!is') {
+		operators.push({ operator: '!is', name: t('workflowengine', 'is not') })
+	}
+	return operators
+}
+
 const FileChecks = [
 	{
 		class: 'OCA\\WorkflowEngine\\Check\\FileName',
@@ -37,7 +57,8 @@ const FileChecks = [
 	{
 		class: 'OCA\\WorkflowEngine\\Check\\FileMimeType',
 		name: t('workflowengine', 'File MIME type'),
-		operators: stringOrRegexOperators,
+		operators: mimeTypeOperators,
+		validate: stringValidator,
 		element: registerCustomElement(FileMimeType, 'oca-workflowengine-checks-file_mime_type'),
 	},
 

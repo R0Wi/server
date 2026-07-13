@@ -15,7 +15,16 @@ function validateRegex(string) {
 	if (!string) {
 		return false
 	}
-	return regexRegex.exec(string) !== null
+	const result = regexRegex.exec(string)
+	if (result === null) {
+		return false
+	}
+	try {
+		new RegExp(result[1], result[2])
+		return true
+	} catch {
+		return false
+	}
 }
 
 /**
